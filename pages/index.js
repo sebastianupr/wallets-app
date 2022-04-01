@@ -26,13 +26,13 @@ export default function Home() {
 
   console.log('walletsFetched', walletsFetched);
 
-  useEffect(() => {
-    if (!hasFinish) {
-      setInterval(() => {
-        setTime(currentTime => currentTime + 1_000);
-      }, 1_000);
-    }
-  }, [hasFinish]);
+  // useEffect(() => {
+  //   if (!hasFinish) {
+  //     setInterval(() => {
+  //       setTime(currentTime => currentTime + 1_000);
+  //     }, 1_000);
+  //   }
+  // }, [hasFinish]);
 
   const fetchWallets = async () => {
     Papa.parse('./wallets_file.csv', {
@@ -70,13 +70,20 @@ export default function Home() {
               return true
             }
 
-            const transformedData = response.filter(Boolean).map(({ data }) => data);
+            const transformedData = response.filter(Boolean).map(({ data }) => {
+              const walletData = { ...data };
+              const lastBalance = data.items[data.items.length - 1];
+              walletData.listOfBalances = lastBalance.items;
+              delete walletData.items;
+              walletData.balance = lastBalance;
+              return walletData;
+            });
 
             // Delay for each chunk, this is for server timeout
             await delayForEachChunk();
 
             setWalletsFetched(current => [...current, ...transformedData]);
-            
+
             // Call next chunk
             if (currentChunkedWallet < LIMIT) {
               currentChunkedWallet++;
@@ -89,12 +96,13 @@ export default function Home() {
 
           const fetchChunkedWallets = (currentResolve) => new Promise(async (resolve) => {
             const isFinish = await fetchWallets(fetchChunkedWallets, resolve);
-            if (isFinish) currentResolve();
+            if (isFinish) {
+              console.log('Finish!')
+              currentResolve();
+            }
           })
 
           await fetchChunkedWallets();
-
-          console.log('Finish !!');
         } catch (e) {
           // console.log('error', e)
         } finally {
@@ -105,7 +113,9 @@ export default function Home() {
   }
 
   useEffect(() => {
-    fetchWallets();
+    fetchWallets().then(() => {
+      console.log('Finish!');
+    });
   }, [])
 
   // format time miliseconds to seconds
@@ -123,37 +133,100 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="container mx-auto">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="sm:flex sm:items-center">
+          <div className="sm:flex-auto">
+            <h1 className="text-xl font-semibold text-gray-900">Wallets</h1>
+            <p className="mt-2 text-sm text-gray-700">
+              List of wallets
+            </p>
+          </div>
+          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div className="mt-8 flex flex-col">
+          <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div className="inline-block min-w-full py-2 align-middle">
+              <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
+                <table className="min-w-full divide-y divide-gray-300">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th
+                        scope="col"
+                        className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 lg:pl-8"
+                      >
+                        Address
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Balance
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Currency
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Last updated
+                      </th>
+                      <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6 lg:pr-8">
+                        <span className="sr-only">Detail</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 bg-white">
+                    {walletsFetched.map(({ address = '', balance, quote_currency, updated_at }) => (
+                      <tr key={address}>
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 lg:pl-8">
+                          {address}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{balance.balance}</td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{quote_currency}</td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{updated_at}</td>
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 lg:pr-8">
+                          <a href="#" className="text-indigo-600 hover:text-indigo-900">
+                            Detail<span className="sr-only"></span>
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* <div className="container mx-auto">
         <div className="flex flex-wrap justify-center">
           <h3>Tiempo transcurrido: {formatTime(time)}</h3>
         </div>
         <table className="table-auto mx-auto">
           <thead>
             <tr>
-              <th>Song</th>
-              <th>Artist</th>
-              <th>Year</th>
+              <th>Address</th>
+              <th>Balance</th>
+              <th>Currency</th>
+              <th>Last Updated</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>The Sliding Mr. Bones (Next Stop, Pottersville)</td>
-              <td>Malcolm Lockyer</td>
-              <td>1961</td>
-            </tr>
-            <tr>
-              <td>Witchy Woman</td>
-              <td>The Eagles</td>
-              <td>1972</td>
-            </tr>
-            <tr>
-              <td>Shining Star</td>
-              <td>Earth, Wind, and Fire</td>
-              <td>1975</td>
-            </tr>
+            {walletsFetched.map(({ address = '', balance, quote_currency, updated_at }) => {
+              const { balance: balanceAmount } = balance;
+              return <tr key={address}>
+                <td>{address}</td>
+                <td>{balanceAmount}</td>
+                <td>{quote_currency}</td>
+                <td>{updated_at}</td>
+              </tr>
+            })}
           </tbody>
         </table>
-      </div>
+      </div> */}
     </main>
   )
 }
